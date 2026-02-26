@@ -1,0 +1,57 @@
+# ============================================================
+# 模拟交易系统 - 默认配置文件
+# config/default.yaml
+#
+# 修改此文件来调整回测参数，无需改动代码。
+# ============================================================
+
+# ---- 数据路径（相对于运行目录或绝对路径）----
+data:
+  position_csv: ./f_bond_position.csv   # 仓位文件
+  price_csv:    ./price_df.csv          # 价格文件
+
+# ---- 模拟控制 ----
+simulation:
+  mode: capital          # capital（资金模式） | nav（净值模式）
+
+  # 成交时机（4 选 1）：
+  #   prev_close  前日收盘 — 以前一交易日收盘价成交，前视偏差最高，收益通常最高
+  #   same_open   当日开盘 — 以信号当日开盘价成交，适合隔夜信号策略
+  #   same_close  当日收盘 — 以信号当日收盘价成交，轻微前视偏差
+  #   next_open   次日开盘 — 以次日开盘价成交，无前视偏差（最保守，推荐）
+  exec_timing: next_open
+
+  # 回测日期范围（均可为 null 表示不限制）
+  # 有效开始日 = max(start_date, 调仓表首日)
+  #   - start_date 未设置或早于调仓表首日 → 从调仓表首日开始（默认）
+  #   - start_date 晚于调仓表首日         → 从 start_date 开始（分段回测）
+  start_date: null       # 例: 2020-01-01
+  end_date:   null       # 例: 2023-12-31
+
+# ---- 资金模式参数（mode=capital 时有效）----
+capital:
+  initial_capital: 1000000  # 起始资金（元）
+  min_lot: 100              # 每手股数（债券ETF = 100；A股 = 100）
+
+# ---- 交易成本 ----
+costs:
+  commission_rate: 0.0003   # 双边手续费率（买卖均收取）
+  stamp_duty:      0.0      # 卖出印花税率
+                            #   债券ETF：0.0
+                            #   A股：    0.001（0.1%）
+  friction_cost:   0.0001   # 额外摩擦成本率（双边，含滑点等）
+
+# ---- 评价指标参数 ----
+metrics:
+  risk_free_rate:  0.0   # 年化无风险利率（用于夏普/索提诺比率）
+  periods_per_year: 252  # 年化交易日数
+
+# ---- 输出配置 ----
+output:
+  dir:         ./output   # 输出目录
+  save_chart:  true       # 是否保存图表（.png）
+  show_chart:  false      # 是否弹窗显示图表（服务器环境建议 false）
+  save_excel:  true       # 是否保存 Excel 结果
+  chart_dpi:   150        # 图表分辨率（DPI）
+  chart_width:  16        # 图表宽度（英寸）
+  chart_height: 10        # 图表高度（英寸）
