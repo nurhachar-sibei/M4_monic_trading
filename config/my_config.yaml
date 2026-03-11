@@ -1,23 +1,23 @@
 data:
-  position_csv: change_date_weight_df.csv
-  price_csv: price_df_1.csv
+  position_csv: data_ini/position_table_o_ew_3.csv
+  price_csv: data_ini/price_oil.csv
 simulation:
-  mode: capital
-  exec_timing: same_open
-  start_date: 2017-05-01
-  end_date: null
+  mode: nav  # 可选值：capital（资金模式）或nav（净值模式）
+  exec_timing: prev_close
+  start_date: 2012-01-01
+  end_date: 2025-12-31
 capital:
   initial_capital: 5000000
   min_lot: 100
 costs:
   commission_rate: 0.0000
   stamp_duty: 0.0
-  friction_cost: 0.0020
+  friction_cost: 0.000
 metrics:
   risk_free_rate: 0.0
   periods_per_year: 252
 output:
-  dir: output/custom
+  dir: output/output_20260309_o_ew_3
   save_chart: true
   show_chart: false
   save_excel: true
