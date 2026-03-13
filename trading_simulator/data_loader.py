@@ -81,9 +81,22 @@ class DataLoader:
 
         # 构建价格宽表 {(field, code): Series}
         price_pivot = cls._build_price_pivot(price_raw)
+
+        # ---- 提取首日前收盘价（用于引擎初始化 prev_closes）----
+        # 在 reindex 裁切之前，从完整价格表中找每个标的在 trade_dates[0] 之前
+        # 最近一个有效收盘价，避免首次开仓时误用当日开盘价作为执行价格。
+        first_date = trade_dates[0]
+        initial_prev_closes: dict = {}
+        for code in pos_aligned.columns:
+            key = ("CLOSE", code)
+            if key in price_pivot.columns:
+                pre = price_pivot.loc[price_pivot.index < first_date, key].dropna()
+                initial_prev_closes[code] = float(pre.iloc[-1]) if len(pre) > 0 else float("nan")
+            else:
+                initial_prev_closes[code] = float("nan")
         price_pivot = price_pivot.reindex(trade_dates)
 
-        return pos_aligned, price_pivot
+        return pos_aligned, price_pivot, initial_prev_closes
 
     # ------------------------------------------------------------------ #
     # 读取

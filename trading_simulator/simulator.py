@@ -74,7 +74,7 @@ class TradingSimulator:
             print(f"  加载数据...")
 
         # 1. 数据加载
-        self._pos_df, self._price_pivot = DataLoader.load(self.config)
+        self._pos_df, self._price_pivot, initial_prev_closes = DataLoader.load(self.config)
         if verbose:
             DataLoader.print_info(self._pos_df, self._price_pivot)
 
@@ -84,7 +84,8 @@ class TradingSimulator:
             if self.config.simulation.mode == "capital"
             else NAVEngine
         )
-        engine = EngineClass(self._pos_df, self._price_pivot, self.config)
+        engine = EngineClass(self._pos_df, self._price_pivot, self.config,
+                             initial_prev_closes=initial_prev_closes)
 
         if verbose:
             print(f"  运行引擎 ({EngineClass.__name__})...")

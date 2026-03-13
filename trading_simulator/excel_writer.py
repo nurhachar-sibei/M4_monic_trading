@@ -136,7 +136,7 @@ class ExcelWriter:
 
         sec_cols = []
         for code in self.result.securities:
-            for suffix in ["_目标仓位", "_实际仓位", "_持仓股数", "_收盘价", "_持仓市值"]:
+            for suffix in ["_目标仓位", "_实际仓位", "_持仓股数", "_持仓份额", "_收盘价", "_持仓市值"]:
                 col = f"{code}{suffix}"
                 if col in df.columns:
                     sec_cols.append(col)
@@ -176,6 +176,8 @@ class ExcelWriter:
                 fmt_map[i] = "#,##0.00"
             elif "股数" in col:
                 fmt_map[i] = "#,##0"
+            elif "份额" in col:
+                fmt_map[i] = "0.00000000"
 
         for row_idx, row_data in enumerate(df.itertuples(index=False), start=2):
             for col_idx, val in enumerate(row_data, start=1):
@@ -412,18 +414,18 @@ class ExcelWriter:
             }
         else:
             FMT_MAP = {
-                3: "0.000000",   # 买入价格（净值单位）
-                4: "0.000000",   # 当前价格（净值单位）
-                5: "0.000000",   # 买入金额（净值单位）
-                6: "0.000000",   # 当前金额（净值单位）
-                7: "0.0000",     # 昨日收盘价
-                8: "0.0000",     # 今日开盘价
-                9: "0.0000",     # 今日收盘价
-                10: "0.00%",     # 持仓份额（权重比例）
-                11: "0.000000",  # 今日收盘市值
-                12: "0.00%",     # 今日收盘占资金权重
-                13: "0.000000",  # 当日损益
-                14: "0.000000",  # 持仓期间累计损益
+                3: "0.0000",      # 买入价格（加权平均执行价，元）
+                4: "0.0000",      # 当前价格（收盘价，元）
+                5: "0.000000",    # 买入金额（组合单位）
+                6: "0.000000",    # 当前金额（组合单位）
+                7: "0.0000",      # 昨日收盘价
+                8: "0.0000",      # 今日开盘价
+                9: "0.0000",      # 今日收盘价
+                10: "0.00000000", # 持仓份额（小数份额）
+                11: "0.000000",   # 今日收盘市值（组合单位）
+                12: "0.00%",      # 今日收盘占资金权重
+                13: "0.000000",   # 当日损益（组合单位）
+                14: "0.000000",   # 持仓期间累计损益（组合单位）
             }
 
         n_days = len(df)
@@ -455,30 +457,34 @@ class ExcelWriter:
                     # 当前价格 = 今日收盘价
                     cur_price = close_p
                 else:
-                    # 净值模式：持仓份额 = 实际仓位权重
-                    shares    = row.get(f"{code}_实际仓位", 0.0)
-                    mv        = shares * nav
-                    weight    = shares   # 权重即仓位
-                    # 买入价格 = 成本净值 ÷ 仓位权重（权重为 0 时显示 nan）
-                    buy_price = (cost / shares) if (shares > 1e-9 and not np.isnan(cost)) else np.nan
-                    # 当前价格 = 当前净值
-                    cur_price = nav
+                    # 净值模式：持仓份额 = 实际小数份额，价格单位为元
+                    actual_shares = row.get(f"{code}_持仓份额", 0.0)
+                    weight        = row.get(f"{code}_实际仓位", 0.0)    # 日末真实权重
+                    avg_ep        = row.get(f"{code}_平均买价", np.nan)  # 加权平均买价（元）
+                    mv_nav        = (actual_shares * close_p
+                                     if (actual_shares > 0 and not np.isnan(close_p))
+                                     else 0.0)
+                    # 买入价格 = 加权平均执行价（元）
+                    buy_price = avg_ep
+                    # 当前价格 = 今日收盘价（元）
+                    cur_price = close_p
+                    shares    = actual_shares
 
                 rows_data.append([
-                    str(date)[:10],  # 日期
-                    code,            # 资产代码
-                    buy_price,       # 买入价格
-                    cur_price,       # 当前价格
-                    cost,            # 买入金额
-                    mv,              # 当前金额
-                    prev_close,      # 昨日收盘价
-                    open_p,          # 今日开盘价
-                    close_p,         # 今日收盘价
-                    shares,          # 持仓份额
-                    mv,              # 今日收盘市值（同当前金额）
-                    weight,          # 今日收盘占资金权重
-                    daily_pnl,       # 当日损益
-                    cum_pnl,         # 持仓期间累计损益
+                    str(date)[:10],                      # 日期
+                    code,                                 # 资产代码
+                    buy_price,                            # 买入价格
+                    cur_price,                            # 当前价格
+                    cost,                                 # 买入金额
+                    mv if is_capital else mv_nav,         # 当前金额
+                    prev_close,                           # 昨日收盘价
+                    open_p,                               # 今日开盘价
+                    close_p,                              # 今日收盘价
+                    shares,                               # 持仓份额
+                    mv if is_capital else mv_nav,         # 今日收盘市值
+                    weight,                               # 今日收盘占资金权重
+                    daily_pnl,                            # 当日损益
+                    cum_pnl,                              # 持仓期间累计损益
                 ])
 
             # --- 写入单日 Excel ---
