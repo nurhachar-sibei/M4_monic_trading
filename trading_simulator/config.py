@@ -21,6 +21,7 @@ class DataConfig:
     """数据文件路径配置"""
     position_csv: str = "./f_bond_position.csv"
     price_csv: str = "./price_df.csv"
+    bench_position_csv: Optional[str] = None  # 基准仓位文件（可选），用于策略对比
 
 
 # 所有合法的执行时机选项
@@ -73,6 +74,7 @@ class OutputConfig:
     save_chart: bool = True
     show_chart: bool = False
     save_excel: bool = True
+    save_daily_details: bool = True  # 是否输出每日仓位明细文件夹
     chart_dpi: int = 150
     chart_width: int = 16
     chart_height: int = 10

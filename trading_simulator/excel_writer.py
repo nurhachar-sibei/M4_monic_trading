@@ -116,6 +116,19 @@ class ExcelWriter:
         ws4 = wb.create_sheet("逐年收益")
         self._write_yearly_sheet(ws4)
 
+        # Sheet 5: 净值序列（如果配置了bench）
+        if self.result.bench_nav_series is not None:
+            ws5 = wb.create_sheet("净值序列")
+            self._write_nav_series_sheet(ws5)
+            
+            # Sheet 6: 每日收益率
+            ws6 = wb.create_sheet("每日收益率")
+            self._write_daily_returns_sheet(ws6)
+            
+            # Sheet 7: 月度收益
+            ws7 = wb.create_sheet("月度收益")
+            self._write_monthly_returns_sheet(ws7)
+
         wb.save(path)
         print(f"  Excel 已保存 → {path}")
 
@@ -241,8 +254,16 @@ class ExcelWriter:
 
     def _write_metrics_sheet(self, ws) -> None:
         m = self._metrics
-        ws.column_dimensions["A"].width = 20
-        ws.column_dimensions["B"].width = 22
+        has_bench = self.result.bench_nav_series is not None
+        
+        # 如果有bench，使用三列表头：指标、策略、基准
+        if has_bench:
+            ws.column_dimensions["A"].width = 22
+            ws.column_dimensions["B"].width = 18
+            ws.column_dimensions["C"].width = 18
+        else:
+            ws.column_dimensions["A"].width = 20
+            ws.column_dimensions["B"].width = 22
 
         mode_cn = "资金模式" if self.result.mode == "capital" else "净值模式"
 
@@ -255,71 +276,122 @@ class ExcelWriter:
         ws.cell(2, 1, f"回测区间：{str(nav.index[0])[:10]} ~ {str(nav.index[-1])[:10]}")
 
         # 表头
-        _write_header(ws, 4, ["指标", "值"], [20, 22], "metrics")
+        if has_bench:
+            _write_header(ws, 4, ["指标", "策略", "基准"], [22, 18, 18], "metrics")
+            bench_m = self.result.bench_metrics
+        else:
+            _write_header(ws, 4, ["指标", "值"], [20, 22], "metrics")
+            bench_m = {}
 
         rows_data = [
             ("--- 收益 ---", None),
-            ("总收益率",      m.get("总收益率",   np.nan)),
-            ("年化收益率",    m.get("年化收益率", np.nan)),
+            ("总收益率",      m.get("总收益率",   np.nan), bench_m.get("总收益率", np.nan) if has_bench else None),
+            ("年化收益率",    m.get("年化收益率", np.nan), bench_m.get("年化收益率", np.nan) if has_bench else None),
             ("--- 风险 ---", None),
-            ("年化波动率",    m.get("年化波动率", np.nan)),
-            ("最大回撤",      m.get("最大回撤",   np.nan)),
-            ("最大回撤开始",  str(m.get("最大回撤开始", ""))[:10]),
-            ("最大回撤结束",  str(m.get("最大回撤结束", ""))[:10]),
-            ("水下天数",      m.get("水下天数",   np.nan)),
+            ("年化波动率",    m.get("年化波动率", np.nan), bench_m.get("年化波动率", np.nan) if has_bench else None),
+            ("最大回撤",      m.get("最大回撤",   np.nan), bench_m.get("最大回撤", np.nan) if has_bench else None),
+            ("最大回撤开始",  str(m.get("最大回撤开始", ""))[:10], str(bench_m.get("最大回撤开始", ""))[:10] if has_bench else None),
+            ("最大回撤结束",  str(m.get("最大回撤结束", ""))[:10], str(bench_m.get("最大回撤结束", ""))[:10] if has_bench else None),
+            ("水下天数",      m.get("水下天数",   np.nan), bench_m.get("水下天数", np.nan) if has_bench else None),
             ("--- 风险调整 ---", None),
-            ("夏普比率",      m.get("夏普比率",   np.nan)),
-            ("索提诺比率",    m.get("索提诺比率", np.nan)),
-            ("卡玛比率",      m.get("卡玛比率",   np.nan)),
+            ("夏普比率",      m.get("夏普比率",   np.nan), bench_m.get("夏普比率", np.nan) if has_bench else None),
+            ("索提诺比率",    m.get("索提诺比率", np.nan), bench_m.get("索提诺比率", np.nan) if has_bench else None),
+            ("卡玛比率",      m.get("卡玛比率",   np.nan), bench_m.get("卡玛比率", np.nan) if has_bench else None),
             ("--- 胜率 ---",  None),
-            ("月度胜率",      m.get("月度胜率",   np.nan)),
-            ("年度胜率",      m.get("年度胜率",   np.nan)),
-            ("--- 基本信息 ---", None),
-            ("交易天数",      m.get("交易天数",   0)),
-            ("调仓次数",      self.result.n_trades),
+            ("月度胜率",      m.get("月度胜率",   np.nan), bench_m.get("月度胜率", np.nan) if has_bench else None),
+            ("年度胜率",      m.get("年度胜率",   np.nan), bench_m.get("年度胜率", np.nan) if has_bench else None),
         ]
+        
+        # 添加超额收益指标（如果有bench）
+        if has_bench:
+            ex = self.result.excess_metrics
+            rows_data += [
+                ("--- 超额收益 (策略-基准) ---", None),
+                ("年化超额收益", ex.get("年化超额收益", np.nan), None),
+                ("总超额收益", ex.get("总超额收益", np.nan), None),
+                ("年化超额标准差", ex.get("年化超额标准差", np.nan), None),
+                ("信息比率", ex.get("信息比率", np.nan), None),
+                ("超额收益最大回撤", ex.get("超额收益最大回撤", np.nan), None),
+                ("日度胜率", ex.get("日度胜率", np.nan), None),
+                ("月度胜率", ex.get("月度胜率", np.nan), None),
+                ("超额赔率", ex.get("超额赔率", np.nan), None),
+            ]
+        
+        rows_data += [
+            ("--- 基本信息 ---", None),
+            ("交易天数",      m.get("交易天数",   0), bench_m.get("交易天数", 0) if has_bench else None),
+            ("调仓次数",      self.result.n_trades, self.result.n_trades if has_bench else None),  # bench无调仓概念
+        ]
+        
         if self.result.mode == "capital" and self.result.config:
             ic = self.result.config.capital.initial_capital
             last_nav = float(self.result.nav_series.iloc[-1])
-            rows_data += [
-                ("--- 资金 ---",  None),
-                ("起始资金",      ic),
-                ("期末资产",      ic * last_nav),
-                ("绝对收益",      ic * (last_nav - 1.0)),
-            ]
+            if has_bench:
+                bench_last_nav = float(self.result.bench_nav_series.iloc[-1])
+                rows_data += [
+                    ("--- 资金 ---",  None),
+                    ("起始资金",      ic, ic),
+                    ("期末资产",      ic * last_nav, ic * bench_last_nav),
+                    ("绝对收益",      ic * (last_nav - 1.0), ic * (bench_last_nav - 1.0)),
+                ]
+            else:
+                rows_data += [
+                    ("--- 资金 ---",  None),
+                    ("起始资金",      ic, None),
+                    ("期末资产",      ic * last_nav, None),
+                    ("绝对收益",      ic * (last_nav - 1.0), None),
+                ]
 
-        pct_keys = {"总收益率", "年化收益率", "年化波动率", "最大回撤", "月度胜率", "年度胜率"}
+        pct_keys = {"总收益率", "年化收益率", "年化波动率", "最大回撤", "月度胜率", "年度胜率", 
+                    "年化超额收益", "总超额收益", "年化超额标准差", "超额收益最大回撤", 
+                    "日度胜率", "月度胜率"}
+        payoff_keys = {"超额赔率"}  # 赔率格式化为x.xx倍
         money_keys = {"起始资金", "期末资产", "绝对收益"}
         float4_keys = {"夏普比率", "索提诺比率", "卡玛比率", "信息比率"}
 
         section_fill = PatternFill("solid", fgColor="D9E1F2")
 
-        for i, (key, val) in enumerate(rows_data, start=5):
+        for i, row in enumerate(rows_data, start=5):
+            key = row[0]
+            val_strategy = row[1]
+            val_bench = row[2] if len(row) > 2 else None
+            
             c1 = ws.cell(i, 1, key)
-            c2 = ws.cell(i, 2, val)
-            for cell in (c1, c2):
+            c2 = ws.cell(i, 2, val_strategy)
+            if has_bench and val_bench is not None:
+                c3 = ws.cell(i, 3, val_bench)
+                cells = (c1, c2, c3)
+            else:
+                cells = (c1, c2)
+            
+            for cell in cells:
                 cell.border = _BORDER
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
             is_section = key.startswith("---")
             if is_section:
-                for cell in (c1, c2):
+                for cell in cells:
                     cell.fill = section_fill
                     cell.font = Font(bold=True, color="1F497D", italic=True)
             else:
                 fill = _ROW_EVEN if i % 2 == 0 else _ROW_ODD
-                c1.fill = fill
-                c2.fill = fill
+                for cell in cells:
+                    cell.fill = fill
                 # 数字格式
-                if isinstance(val, (int, float)) and not isinstance(val, bool):
-                    if key in pct_keys:
-                        c2.number_format = "0.00%"
-                    elif key in money_keys:
-                        c2.number_format = "#,##0.00"
-                    elif key in float4_keys:
-                        c2.number_format = "0.0000"
-                    elif key in {"交易天数", "水下天数", "调仓次数"}:
-                        c2.number_format = "#,##0"
+                for val, cell in [(val_strategy, c2), (val_bench, c3 if has_bench and val_bench is not None else None)]:
+                    if cell is None:
+                        continue
+                    if isinstance(val, (int, float)) and not isinstance(val, bool):
+                        if key in pct_keys:
+                            cell.number_format = "0.00%"
+                        elif key in money_keys:
+                            cell.number_format = "#,##0.00"
+                        elif key in float4_keys:
+                            cell.number_format = "0.0000"
+                        elif key in payoff_keys:
+                            cell.number_format = "0.00\"倍\""
+                        elif key in {"交易天数", "水下天数", "调仓次数"}:
+                            cell.number_format = "#,##0"
 
         ws.freeze_panes = "A5"
 
@@ -504,3 +576,150 @@ class ExcelWriter:
             wb.save(path)
 
         print(f"  每日仓位明细 → {folder}  ({n_days} 个文件)")
+
+    # ------------------------------------------------------------------ #
+    # Sheet 5 - 净值序列（仅当有bench时）
+    # ------------------------------------------------------------------ #
+
+    def _write_nav_series_sheet(self, ws) -> None:
+        """写入策略和基准的净值序列"""
+        if self.result.bench_nav_series is None:
+            ws.cell(1, 1, "无基准数据")
+            return
+        
+        # 对齐两个净值序列
+        strategy_nav = self.result.nav_series
+        bench_nav = self.result.bench_nav_series
+        
+        # 取交集日期
+        common_dates = strategy_nav.index.intersection(bench_nav.index)
+        strategy_nav = strategy_nav.loc[common_dates]
+        bench_nav = bench_nav.loc[common_dates]
+        
+        # 表头
+        headers = ["日期", "策略净值", "基准净值", "相对强弱(策略/基准)"]
+        widths = [14, 14, 14, 18]
+        _write_header(ws, 1, headers, widths, "metrics")
+        
+        # 计算相对强弱
+        relative_strength = strategy_nav / bench_nav
+        
+        # 数据行
+        fmt_map = {2: "0.000000", 3: "0.000000", 4: "0.000000"}
+        for i, date in enumerate(common_dates, start=2):
+            ws.cell(i, 1, str(date)[:10])
+            ws.cell(i, 2, float(strategy_nav.loc[date]))
+            ws.cell(i, 3, float(bench_nav.loc[date]))
+            ws.cell(i, 4, float(relative_strength.loc[date]))
+            _style_row(ws, i, 4, fmt_map)
+        
+        ws.freeze_panes = "A2"
+
+    # ------------------------------------------------------------------ #
+    # Sheet 6 - 每日收益率（仅当有bench时）
+    # ------------------------------------------------------------------ #
+
+    def _write_daily_returns_sheet(self, ws) -> None:
+        """写入策略和基准的每日收益率，以及超额收益"""
+        if self.result.bench_nav_series is None:
+            ws.cell(1, 1, "无基准数据")
+            return
+        
+        # 对齐两个净值序列
+        strategy_nav = self.result.nav_series
+        bench_nav = self.result.bench_nav_series
+        
+        # 取交集日期
+        common_dates = strategy_nav.index.intersection(bench_nav.index)
+        strategy_nav = strategy_nav.loc[common_dates]
+        bench_nav = bench_nav.loc[common_dates]
+        
+        # 计算日收益率
+        strategy_returns = strategy_nav.pct_change().dropna()
+        bench_returns = bench_nav.pct_change().dropna()
+        
+        # 对齐收益率日期
+        common_ret_dates = strategy_returns.index.intersection(bench_returns.index)
+        strategy_returns = strategy_returns.loc[common_ret_dates]
+        bench_returns = bench_returns.loc[common_ret_dates]
+        
+        # 计算超额收益和累计超额
+        excess_returns = strategy_returns - bench_returns
+        cum_excess = (1 + excess_returns).cumprod()
+        
+        # 表头
+        headers = ["日期", "策略收益率", "基准收益率", "超额收益", "累计超额收益"]
+        widths = [14, 14, 14, 14, 16]
+        _write_header(ws, 1, headers, widths, "metrics")
+        
+        # 数据行
+        fmt_map = {2: "0.00%", 3: "0.00%", 4: "0.00%", 5: "0.000000"}
+        for i, date in enumerate(common_ret_dates, start=2):
+            ws.cell(i, 1, str(date)[:10])
+            ws.cell(i, 2, float(strategy_returns.loc[date]))
+            ws.cell(i, 3, float(bench_returns.loc[date]))
+            ws.cell(i, 4, float(excess_returns.loc[date]))
+            ws.cell(i, 5, float(cum_excess.loc[date]))
+            _style_row(ws, i, 5, fmt_map)
+        
+        ws.freeze_panes = "A2"
+
+    # ------------------------------------------------------------------ #
+    # Sheet 7 - 月度收益（仅当有bench时）
+    # ------------------------------------------------------------------ #
+
+    def _write_monthly_returns_sheet(self, ws) -> None:
+        """写入策略和基准的月度收益率，以及月度超额收益"""
+        if self.result.bench_nav_series is None:
+            ws.cell(1, 1, "无基准数据")
+            return
+        
+        # 对齐两个净值序列
+        strategy_nav = self.result.nav_series
+        bench_nav = self.result.bench_nav_series
+        
+        # 取交集日期
+        common_dates = strategy_nav.index.intersection(bench_nav.index)
+        strategy_nav = strategy_nav.loc[common_dates]
+        bench_nav = bench_nav.loc[common_dates]
+        
+        # 计算月度收益率
+        strategy_monthly = strategy_nav.resample("ME").last().pct_change().dropna()
+        bench_monthly = bench_nav.resample("ME").last().pct_change().dropna()
+        
+        # 对齐月度日期
+        common_months = strategy_monthly.index.intersection(bench_monthly.index)
+        strategy_monthly = strategy_monthly.loc[common_months]
+        bench_monthly = bench_monthly.loc[common_months]
+        
+        # 计算月度超额收益
+        excess_monthly = strategy_monthly - bench_monthly
+        
+        # 表头
+        headers = ["月份", "策略月收益", "基准月收益", "超额月收益"]
+        widths = [14, 14, 14, 14]
+        _write_header(ws, 1, headers, widths, "metrics")
+        
+        # 数据行
+        fmt_map = {2: "0.00%", 3: "0.00%", 4: "0.00%"}
+        for i, month in enumerate(common_months, start=2):
+            ws.cell(i, 1, str(month)[:7])  # YYYY-MM
+            ws.cell(i, 2, float(strategy_monthly.loc[month]))
+            ws.cell(i, 3, float(bench_monthly.loc[month]))
+            ws.cell(i, 4, float(excess_monthly.loc[month]))
+            _style_row(ws, i, 4, fmt_map)
+        
+        # 添加月度收益率色阶条件格式
+        last_row = len(common_months) + 1
+        if last_row > 1:
+            for col in ["B", "C", "D"]:
+                ws.conditional_formatting.add(
+                    f"{col}2:{col}{last_row}",
+                    ColorScaleRule(
+                        start_type="min", start_color="F8696B",
+                        mid_type="num", mid_value=0, mid_color="FFEB84",
+                        end_type="max", end_color="63BE7B",
+                    ),
+                )
+        
+        ws.freeze_panes = "A2"

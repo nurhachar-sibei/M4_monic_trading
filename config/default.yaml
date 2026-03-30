@@ -9,6 +9,7 @@
 data:
   position_csv: ./f_bond_position.csv   # 仓位文件
   price_csv:    ./price_df.csv          # 价格文件
+  bench_position_csv: null              # 基准仓位文件（可选），用于策略对比，设为null表示不使用
 
 # ---- 模拟控制 ----
 simulation:
@@ -52,6 +53,7 @@ output:
   save_chart:  true       # 是否保存图表（.png）
   show_chart:  false      # 是否弹窗显示图表（服务器环境建议 false）
   save_excel:  true       # 是否保存 Excel 结果
+  save_daily_details: true  # 是否输出每日仓位明细文件夹（每个交易日一个文件，数据量大时建议关闭以节省时间）
   chart_dpi:   150        # 图表分辨率（DPI）
   chart_width:  16        # 图表宽度（英寸）
   chart_height: 10        # 图表高度（英寸）

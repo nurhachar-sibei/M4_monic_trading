@@ -79,6 +79,10 @@ class SimulationResult:
     nav_series: pd.Series
     metrics: dict = field(default_factory=dict)
     config: Optional[Config] = None
+    # 基准（bench）相关数据
+    bench_nav_series: Optional[pd.Series] = None  # 基准净值序列
+    bench_metrics: dict = field(default_factory=dict)  # 基准绩效指标
+    excess_metrics: dict = field(default_factory=dict)  # 超额收益指标
 
     @property
     def securities(self) -> list:

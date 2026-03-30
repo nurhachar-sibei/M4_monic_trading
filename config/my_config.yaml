@@ -1,6 +1,7 @@
 data:
-  position_csv: data_ini/AW_CT_macro_select.csv
-  price_csv: data_ini/price_df_2.csv
+  position_csv: data_ini/AW_macro_nl.csv
+  price_csv: data_ini/price_df_20260327.csv
+  bench_position_csv: data_ini/AW_bench_01.csv  # 基准仓位文件（可选），用于策略对比
 simulation:
   mode: nav  # 可选值：capital（资金模式）或nav（净值模式）
   exec_timing: prev_close  # 可选值：prev_close（前收盘价执行）或same_open（与开仓时间相同执行）
@@ -12,15 +13,16 @@ capital:
 costs:
   commission_rate: 0.0000
   stamp_duty: 0.0
-  friction_cost: 0.0020
+  friction_cost: 0.0000
 metrics:
   risk_free_rate: 0.0
   periods_per_year: 252
 output:
-  dir: output/AW_CT_macro_select_friction
+  dir: output/AW_macro_nl
   save_chart: true
   show_chart: false
   save_excel: true
+  save_daily_details: false
   chart_dpi: 150
   chart_width: 16
   chart_height: 10

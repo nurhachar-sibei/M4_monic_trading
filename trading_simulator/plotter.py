@@ -157,7 +157,12 @@ class ChartPlotter:
 
         ax.axhline(y=1.0, color="gray", lw=0.8, ls=":")
         mode_label = "资金净值" if self.result.mode == "capital" else "策略净值"
-        ax.set_title(mode_label + "曲线", fontsize=12, fontweight="bold", pad=6)
+        # 如果有benchmark，标题改为"策略 vs 基准"
+        if self.benchmark is not None:
+            title = "策略 vs 基准 净值曲线"
+        else:
+            title = mode_label + "曲线"
+        ax.set_title(title, fontsize=12, fontweight="bold", pad=6)
         ax.set_ylabel("净值")
         ax.legend(loc="upper left", fontsize=9)
         ax.grid(True, alpha=0.25)
@@ -180,21 +185,30 @@ class ChartPlotter:
         if "日期" in daily_df.columns:
             daily_df = daily_df.set_index("日期")
 
+        # 收集所有证券的仓位数据
+        position_data = []
+        labels = []
         for code in self.result.securities:
             col = f"{code}_目标仓位"
             if col in daily_df.columns:
-                ax.fill_between(
-                    daily_df.index,
-                    daily_df[col].values,
-                    alpha=0.55,
-                    color=PALETTE["position"],
-                    label=code,
-                )
-        ax.set_title("仓位变化", fontsize=11, fontweight="bold", pad=6)
+                position_data.append(daily_df[col].values)
+                labels.append(code)
+
+        if position_data:
+            # 使用 stackplot 绘制堆积面积图
+            colors = plt.cm.tab10(np.linspace(0, 1, len(position_data)))
+            ax.stackplot(
+                daily_df.index,
+                *position_data,
+                labels=labels,
+                alpha=0.7,
+                colors=colors,
+            )
+        ax.set_title("仓位变化（堆积图）", fontsize=11, fontweight="bold", pad=6)
         ax.set_ylabel("仓位比例")
         ax.set_ylim(-0.05, 1.15)
         ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1))
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=8, loc="upper left")
         ax.grid(True, alpha=0.25)
         self._fmt_xaxis(ax, daily_df.index, step_years=2)
 
